@@ -5,23 +5,29 @@ from mongodb.queryUtils import QueryUtils
 from stocks.stocksHandler import stockIndexing
 import jdatetime
 import signal
+import threading
 
 def signal_handler(signum, frame):
     raise Exception("Timed out!")
 signal.signal(signal.SIGALRM, signal_handler)
 
-class priceExtractor():
+class DataExtractor(threading.Thread):
 
-    def __init__(self, collection_name):
+    def __init__(self, collection_name, Extractor_Func, init_args, update_args):
+        threading.Thread.__init__(self)
+        self.Extractor_Func = Extractor_Func
+        self.init_args = init_args
+        self.update_args = update_args
 
         self.stock_indexing = stockIndexing()
-        self.stk_idx_lst = self.stock_indexing.stocks_list["Idx"].to_list()[500:]
+        self.stk_idx_lst = self.stock_indexing.stocks_list["Idx"].to_list()
 
         mongo_builder = MongoBuilder()
         self.collection = mongo_builder.get_mongodb_collection(collection_name=collection_name)
 
         self.query_utils = QueryUtils(self.collection)
 
+        self.stock_error_list = []
 
     def run(self):
 
@@ -36,10 +42,13 @@ class priceExtractor():
                     self.__insert(stk_name, stk_lst_data)
             except:
                 print(stk_name, " error")
+                self.stock_error_list.append(stk_name)
+        return
 
     def __initInsert(self, stk_name):
-        init_price_args = {'stock':stk_name,'ignore_date':True,'adjust_price':False,'show_weekday':False,'double_date':True}
-        df = fpy.Get_Price_History(**init_price_args)
+        init_args = self.init_args.copy()
+        init_args.update({"stock": stk_name})
+        df = self.Extractor_Func(**init_args)
         df['Jdate'] = df.index
         self.query_utils.inserertDF(df)
         print("first inserted: ", stk_name, len(df))
@@ -49,9 +58,10 @@ class priceExtractor():
         current_date = jdatetime.date.today()
         if stk_lst_date != str(current_date):
             start_date = str((jdatetime.datetime.strptime(stk_lst_date, "%Y-%m-%d") + jdatetime.timedelta(days=1)).date())
-            end_date = str(current_date)
-            update_price_args = {'stock':stk_name,'ignore_date':False,'adjust_price':False,'show_weekday':False,'double_date':True, 'start_date':start_date, 'end_date':end_date}
-            df = fpy.Get_Price_History(**update_price_args)
+            end_date = str(current_date - jdatetime.timedelta(days=1))
+            update_args = self.update_args.copy()
+            update_args.update({"stock": stk_name, "start_date": start_date, "end_date": end_date})
+            df = self.Extractor_Func(**update_args)
             if len(df) > 0:
                 df['Jdate'] = df.index
                 self.query_utils.inserertDF(df)
