@@ -20,4 +20,4 @@ if __name__=="__main__":
     price_extractor.join()
     ir_extractor.join()
 
-#test3
+#test4
