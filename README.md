@@ -22,7 +22,7 @@
 1. ایجاد یک فایل به نام `docker-compose.yml` و محتوای زیر را در آن قرار دهید:
 
     ```yaml
-    version: '3'
+    version: '3.5'
     services:
       mongo:
         image: mongo
