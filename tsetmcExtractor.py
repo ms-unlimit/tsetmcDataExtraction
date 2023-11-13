@@ -1,5 +1,4 @@
-import finpy_tse as fpy
-import pandas as pd
+
 from mongodb.mongoBuilder import MongoBuilder
 from mongodb.queryUtils import QueryUtils
 from stocks.stocksHandler import stockIndexing
